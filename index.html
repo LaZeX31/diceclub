@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<title>Dice Club</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+ margin:0;
+ font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+ background:radial-gradient(circle at top,#263449,#0b1020 65%);
+ color:#fff;
+ min-height:100vh;
+}
+
+.wrap{
+ max-width:520px;
+ margin:auto;
+ padding:18px 14px 30px;
+}
+
+.top{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+}
+
+h1{
+ margin:5px 0;
+ font-size:32px;
+}
+
+.sub{
+ opacity:.7;
+ font-size:13px;
+}
+
+.card{
+ background:#ffffff12;
+ border:1px solid #ffffff1f;
+ border-radius:22px;
+ padding:18px;
+ margin-top:14px;
+ box-shadow:0 12px 30px #0005;
+}
+
+.row{
+ display:flex;
+ gap:10px;
+ align-items:center;
+ justify-content:space-between;
+}
+
+.players{
+ display:flex;
+ flex-wrap:wrap;
+ gap:8px;
+ margin-top:10px;
+}
+
+.pill{
+ padding:8px 11px;
+ border-radius:999px;
+ background:#1f2937;
+}
+
+.me{
+ background:#7c3aed;
+}
+
+.dice{
+ display:flex;
+ justify-content:center;
+ gap:12px;
+ margin:22px 0;
+ min-height:82px;
+}
+
+.die{
+ width:62px;
+ height:62px;
+ border-radius:16px;
+ background:#fff;
+ color:#111827;
+ display:grid;
+ place-items:center;
+ font-size:36px;
+ font-weight:800;
+ box-shadow:0 8px 18px #0005;
+}
+
+button,input{
+ font:inherit;
+}
+
+button{
+ border:0;
+ border-radius:14px;
+ padding:13px 16px;
+ font-weight:750;
+ cursor:pointer;
+}
+
+.primary{
+ width:100%;
+ background:#8b5cf6;
+ color:#fff;
+ font-size:17px;
+}
+
+.secondary{
+ background:#253047;
+ color:#fff;
+}
+
+.actions{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:10px;
+}
+
+input{
+ width:100%;
+ background:#111827;
+ border:1px solid #374151;
+ color:#fff;
+ padding:13px;
+ border-radius:12px;
+ outline:none;
+}
+
+.center{
+ text-align:center;
+}
+
+.big{
+ font-size:20px;
+ font-weight:800;
+}
+
+.round,.small{
+ opacity:.7;
+ font-size:12px;
+}
+
+.log{
+ max-height:180px;
+ overflow:auto;
+ font-size:13px;
+}
+
+.log div{
+ padding:7px 0;
+ border-bottom:1px solid #ffffff12;
+}
+
+.tag{
+ font-size:11px;
+ background:#374151;
+ padding:4px 7px;
+ border-radius:7px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<div class="top">
+ <div>
+  <h1>🎲 Dice Club</h1>
+  <div class="sub">3 lancers • 5 dés • hasard total</div>
+ </div>
+
+ <span class="tag">PWA</span>
+</div>
+
+
+<div class="card">
+
+<div class="row">
+ <b>Salon</b>
+ <span class="small" id="roomCode">—</span>
+</div>
+
+<div class="players" id="players"></div>
+
+<div class="actions" style="margin-top:12px">
+
+<button class="secondary" onclick="newRoom()">
+Nouveau salon
+</button>
+
+<button class="secondary" onclick="joinRoom()">
+Rejoindre
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card center">
+
+<div class="round">
+Manche <span id="round">1</span>
+•
+Lancer <span id="rollNo">0</span>/3
+</div>
+
+<div class="dice" id="dice"></div>
+
+<div class="big" id="result">
+À toi de jouer !
+</div>
+
+<div class="small" id="scoreLine">
+Score : 0
+</div>
+
+<button class="primary" id="rollBtn" onclick="roll()">
+🎲 Lancer les dés
+</button>
+
+</div>
+
+
+<div class="card">
+
+<div class="row">
+ <b>Joueurs</b>
+ <span class="small">mode local</span>
+</div>
+
+<div class="actions" style="margin-top:10px">
+
+<input
+ id="friendName"
+ placeholder="Pseudo"
+ maxlength="16">
+
+<button
+ class="secondary"
+ onclick="addFriend()">
+Ajouter
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="row">
+ <b>Historique</b>
+
+ <button
+ class="secondary"
+ onclick="resetGame()">
+Reset
+</button>
+
+</div>
+
+<div class="log" id="log"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const faces=[
+'⚀','⚁','⚂','⚃','⚄','⚅'
+];
+
+let state={
+ room:code(),
+ round:1,
+ roll:0,
+ dice:[],
+ players:[
+  {
+   name:'Toi',
+   score:0,
+   me:true
+  }
+ ]
+};
+
+
+function code(){
+ return Math.random()
+ .toString(36)
+ .slice(2,8)
+ .toUpperCase();
+}
+
+
+function save(){
+ localStorage.setItem(
+  'diceClub',
+  JSON.stringify(state)
+ );
+}
+
+
+function load(){
+
+ try{
+
+  let x=JSON.parse(
+   localStorage.getItem('diceClub')
+  );
+
+  if(x) state=x;
+
+ }catch(e){}
+
+}
+
+
+function esc(s){
+
+ return s.replace(
+  /[&<>"']/g,
+  m=>({
+   '&':'&amp;',
+   '<':'&lt;',
+   '>':'&gt;',
+   '"':'&quot;',
+   "'":'&#039;'
+  }[m])
+ );
+
+}
+
+
+function render(){
+
+ roomCode.textContent='#'+state.room;
+
+ round.textContent=state.round;
+
+ rollNo.textContent=state.roll;
+
+
+ players.innerHTML=
+ state.players.map(p=>
+ `
+ <span class="pill ${p.me?'me':''}">
+ 🎲 ${esc(p.name)}
+ <b>${p.score}</b>
+ </span>
+ `
+ ).join('');
+
+
+ dice.innerHTML=
+
+ state.dice.length
+
+ ?
+
+ state.dice.map(n=>
+ `<div class="die">${faces[n-1]}</div>`
+ ).join('')
+
+ :
+
+ '<div class="small" style="padding:30px 0">
+ Les dés apparaîtront ici
+ </div>';
+
+
+ rollBtn.disabled=
+ state.roll>=3;
+
+
+ scoreLine.textContent=
+ 'Score : '+calc(state.dice);
+
+}
+
+
+function calc(d){
+
+ if(!d.length) return 0;
+
+ let c={};
+
+ d.forEach(
+  x=>c[x]=(c[x]||0)+1
+ );
+
+ let v=
+ Object.values(c)
+ .sort((a,b)=>b-a);
+
+ let s=
+ d.reduce((a,b)=>a+b,0);
+
+
+ if(v[0]===5)return 50;
+
+ if(v[0]===4)return 40;
+
+ if(v[0]===3&&v[1]===2)return 30;
+
+ if(v[0]===3)return 20;
+
+ if(v[0]===2&&v[1]===2)return 15;
+
+ if(v[0]===2)return 10;
+
+ return s;
+
+}
+
+
+function label(d){
+
+ if(!d.length)return '';
+
+ let c={};
+
+ d.forEach(
+  x=>c[x]=(c[x]||0)+1
+ );
+
+ let v=
+ Object.values(c)
+ .sort((a,b)=>b-a);
+
+
+ if(v[0]===5)return'🎉 Yams ! +50';
+
+ if(v[0]===4)return'🔥 Carré ! +40';
+
+ if(v[0]===3&&v[1]===2)
+ return'🏆 Full ! +30';
+
+ if(v[0]===3)
+ return'✨ Brelan ! +20';
+
+ if(v[0]===2&&v[1]===2)
+ return'👍 Double paire ! +15';
+
+ if(v[0]===2)
+ return'👌 Paire ! +10';
+
+ return'Somme des dés';
+
+}
+
+
+function log(t){
+
+ document.getElementById('log')
+ .innerHTML=
+ '<div>'+esc(t)+'</div>'+
+ document.getElementById('log').innerHTML;
+
+}
+
+
+function roll(){
+
+ if(state.roll>=3)return;
+
+ state.roll++;
+
+ state.dice=
+ Array.from(
+  {length:5},
+  ()=>1+Math.floor(Math.random()*6)
+ );
+
+ result.textContent=
+ label(state.dice);
+
+
+ if(state.roll===3){
+
+  let s=calc(state.dice);
+
+  state.players[0].score+=s;
+
+  log(
+   `Manche ${state.round} : `+
+   `${state.dice.join('-')} → +${s}`
+  );
+
+  result.textContent+=
+  ' • Manche terminée !';
+
+  state.round++;
+
+  state.roll=0;
+
+  state.dice=[];
+
+ }else{
+
+  log(
+   `Lancer ${state.roll}/3 : `+
+   state.dice.join('-')
+  );
+
+ }
+
+ save();
+
+ render();
+
+}
+
+
+function newRoom(){
+
+ state.room=code();
+
+ state.round=1;
+
+ state.roll=0;
+
+ state.dice=[];
+
+ save();
+
+ render();
+
+ log(
+  'Salon créé : '+state.room
+ );
+
+}
+
+
+function joinRoom(){
+
+ let c=
+ prompt('Code du salon :');
+
+ if(c){
+
+  state.room=
+  c.trim().toUpperCase();
+
+  save();
+
+  render();
+
+  log(
+   'Salon rejoint : '+
+   state.room
+  );
+
+ }
+
+}
+
+
+function addFriend(){
+
+ let n=
+ friendName.value.trim();
+
+ if(!n)return;
+
+ state.players.push({
+  name:n,
+  score:0,
+  me:false
+ });
+
+ friendName.value='';
+
+ save();
+
+ render();
+
+ log(
+  n+' a rejoint la partie.'
+ );
+
+}
+
+
+function resetGame(){
+
+ state={
+  room:code(),
+  round:1,
+  roll:0,
+  dice:[],
+  players:[
+   {
+    name:'Toi',
+    score:0,
+    me:true
+   }
+  ]
+ };
+
+ save();
+
+ render();
+
+ log('Nouvelle partie.');
+
+}
+
+
+load();
+
+render();
+
+log(
+ 'Bienvenue dans Dice Club !'
+);
+
+
+if('serviceWorker' in navigator){
+
+ navigator.serviceWorker.register(
+  'sw.js'
+ );
+
+}
+
+</script>
+
+</body>
+</html>
